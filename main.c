@@ -1,16 +1,23 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
 
-void prompt(char*);
+void prompt(const char*);
+const unsigned long hash(const char*);
+bool is_builtin(unsigned long);
+void handle_builtin(unsigned long, const char*);
 void handle_child(pid_t);
-void become_child(char*);
+void become_child(const char*);
 
-int main(void)
+#define PWD 193502992
+#define CD 5863276
+#define EXIT 6385204799
+
+int main(int argc, char* argv[])
 {
     char *line = NULL;
     size_t len = 0;
@@ -23,6 +30,13 @@ int main(void)
             continue;
 
         line[read-1] = '\0';
+
+        unsigned long hash_value = hash(line);
+        printf(" -- %s -- hash: %ld\n", line, hash_value);
+        if (is_builtin(hash_value)){
+            handle_builtin(hash_value, line);
+            continue;
+        }
 
         pid_t cpid = fork();
         if (cpid == -1)
@@ -43,7 +57,7 @@ int main(void)
     exit(EXIT_SUCCESS);
 }
 
-void prompt(char* prompt_format)
+void prompt(const char* prompt_format)
 {
     time_t now;
     struct tm *tmp;
@@ -56,7 +70,8 @@ void prompt(char* prompt_format)
     }
 
     char buffer[200];
-    if (strftime(buffer, sizeof(buffer), prompt_format, tmp)==0){
+    if (strftime(buffer, sizeof(buffer), prompt_format, tmp)==0)
+    {
         perror("strftime");
         exit(EXIT_FAILURE);
     }
@@ -65,10 +80,59 @@ void prompt(char* prompt_format)
 
 }
 
-void become_child(char* to_execute)
+bool is_builtin(unsigned long hash_value)
+{
+    switch(hash_value){
+        case PWD:
+        case CD:
+        case EXIT:
+            return true;
+        default:
+            return false;
+    }
+}
+
+void handle_builtin(unsigned long hash_value, const char* value){
+
+    switch(hash_value){
+        case EXIT:
+            printf("..done.\n");
+            exit(EXIT_SUCCESS);
+            break;
+        default:
+            printf("handle_builtin (%s).\n", value);
+            break;
+    }
+
+}
+
+// reused from: http://stackoverflow.com/a/37121071
+const unsigned long hash(const char* value)
+{
+    unsigned long hash = 5381;
+    int c;
+
+    while ((c = *value++))
+        hash = ((hash << 5) + hash ) + c;
+
+    return hash;
+}
+
+void become_child(const char* to_execute)
 {
     printf("Child PID is %ld\n", (long)getpid());
     printf("..should execute: '%s'\n", to_execute);
+
+    /* TODO:
+     *  parse to_execute -> parts
+     *    1. dump (split by space)
+     *    2. better (escapes, quotes, ..)
+     *  check for builtin via hash(parts[0])
+     *  execute builtin if appropiate
+     *  else execve(parts[0], parts)
+     *
+     */
+
     exit(EXIT_SUCCESS);
 }
 
