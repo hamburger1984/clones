@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
         line[read-1] = '\0';
 
         unsigned long hash_value = hash(line);
-        printf(" -- %s -- hash: %ld\n", line, hash_value);
+        printf(" -- %s -- hash: %lu\n", line, hash_value);
         if (is_builtin(hash_value)){
             handle_builtin(hash_value, line);
             continue;
